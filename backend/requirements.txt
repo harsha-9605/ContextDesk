@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic
+pymongo[srv]
+motor
+langchain-text-splitters
+pymupdf
+python-multipart
+python-dotenv
+supabase
