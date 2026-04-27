@@ -16,8 +16,9 @@ client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
 # Database
 database = client.contextdesk
 
-# Collection
+# Collections
 pdf_documents = database.get_collection("pdf_documents")
+users_collection = database.get_collection("users")
 
 async def init_db():
     try:
@@ -27,6 +28,10 @@ async def init_db():
         if "pdf_documents" not in collections:
             await pdf_documents.insert_one({"name": "initial_pdf", "status": "initialized", "vector": [], "description": "This is an initial document to create the unified collection."})
             logger.info("Created pdf_documents collection")
+            
+        if "users" not in collections:
+            await users_collection.insert_one({"email": "system@contextdesk.local", "name": "System", "password": "none", "role": "system_init"})
+            logger.info("Created users collection")
             
         logger.info("Successfully connected to MongoDB and initialized collections.")
     except Exception as e:

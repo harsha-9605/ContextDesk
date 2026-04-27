@@ -32,6 +32,27 @@
   --header-height: 80px;
 }
 
+.dark {
+  --primary: #9d87ff;
+  --primary-hover: #b09eff;
+  --primary-light: #2d2459;
+  
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --bg-sidebar: #1e293b;
+  
+  --text-dark: #f8fafc;
+  --text-gray: #cbd5e1;
+  --text-light: #64748b;
+  
+  --border-color: #334155;
+  
+  --accent-purple: #2e1065;
+  --accent-yellow: #422006;
+  --accent-green: #052e16;
+  --accent-blue: #1e3a8a;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

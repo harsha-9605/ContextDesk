@@ -1,18 +1,26 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield } from 'lucide-react';
+import { useAuth } from '../context/Auth';
 
-const SignIn = ({ onLogin }) => {
+const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // MOCK LOGIN: In a real app, this would hit MongoDB/FastAPI
-    if (email) {
-      onLogin({ email, name: email.split('@')[0] });
-      navigate('/');
+    setError('');
+    
+    if (email && password) {
+      const res = await login(email, password);
+      if (res.success) {
+        navigate('/');
+      } else {
+        setError(res.error || 'Failed to sign in');
+      }
     }
   };
 
@@ -30,6 +38,8 @@ const SignIn = ({ onLogin }) => {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {error && <div style={{ color: '#ef4444', backgroundColor: '#fee2e2', padding: '10px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', textAlign: 'center' }}>{error}</div>}
+          
           <div className="form-group">
             <label>Email Address</label>
             <input 

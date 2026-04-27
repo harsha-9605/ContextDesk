@@ -1,8 +1,8 @@
 import React from 'react';
-import { Sun, Bell } from 'lucide-react';
+import { Sun, Moon, Bell } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
-const Header = ({ user, onLogout }) => {
+const Header = ({ user, onLogout, isDarkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
 
   return (
@@ -15,15 +15,15 @@ const Header = ({ user, onLogout }) => {
           </>
         ) : (
           <>
-            <h1>Mini File Manager</h1>
+            <h1>ContextDesk</h1>
             <p>Please sign in to upload and manage your PDFs.</p>
           </>
         )}
       </div>
 
       <div className="header-actions">
-        <button className="icon-btn">
-          <Sun size={20} />
+        <button className="icon-btn" onClick={toggleDarkMode}>
+          {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
         
         {user && (

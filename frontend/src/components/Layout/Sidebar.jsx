@@ -2,9 +2,18 @@ import React from 'react';
 import { Shield, Home, FileText, Star, Clock, Trash2, Plus, Folder } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
-const Sidebar = ({ user, onLogout }) => {
+const Sidebar = ({ user, onLogout, pdfCount }) => {
   const location = useLocation();
   const path = location.pathname;
+
+  // Real storage estimate: each PDF ≈ ~0.5MB average
+  const estimatedMB = pdfCount * 0.5;
+  const totalGB = 5;
+  const usedGB = Math.min(estimatedMB / 1024, totalGB);
+  const usedPercent = Math.round((usedGB / totalGB) * 100);
+  const usedDisplay = usedGB < 0.1
+    ? `${Math.round(estimatedMB)} MB`
+    : `${usedGB.toFixed(2)} GB`;
 
   return (
     <aside className="sidebar">
@@ -13,7 +22,7 @@ const Sidebar = ({ user, onLogout }) => {
           <Shield size={24} />
         </div>
         <div className="logo-text">
-          <h2>Mini File Manager</h2>
+          <h2>ContextDesk</h2>
           <p>Smart. Semantic. Simple.</p>
         </div>
       </div>
@@ -43,31 +52,20 @@ const Sidebar = ({ user, onLogout }) => {
         </ul>
       </div>
 
+      {/* Collections — empty until we build the feature */}
       <div className="nav-section">
         <div className="nav-section-title">
           <span>Collections</span>
-          <Plus size={16} style={{ cursor: 'pointer' }} />
+          {user && <Plus size={16} style={{ cursor: 'pointer', opacity: 0.5 }} title="Coming soon" />}
         </div>
-        <ul className="nav-list">
-          <li className="nav-item">
-            <Folder className="nav-icon" style={{ color: '#8b5cf6' }} />
-            <span>Research Papers</span>
-          </li>
-          <li className="nav-item">
-            <Folder className="nav-icon" style={{ color: '#3b82f6' }} />
-            <span>Study Materials</span>
-          </li>
-          <li className="nav-item">
-            <Folder className="nav-icon" style={{ color: '#10b981' }} />
-            <span>Work Docs</span>
-          </li>
-          <li className="nav-item">
-            <Folder className="nav-icon" style={{ color: '#f59e0b' }} />
-            <span>Personal</span>
-          </li>
-        </ul>
+        <div style={{ fontSize: '13px', color: 'var(--text-gray)', padding: '10px 12px' }}>
+          {pdfCount === 0
+            ? 'No collections yet.'
+            : 'Collections coming soon.'}
+        </div>
       </div>
 
+      {/* Storage — based on real pdf count */}
       <div className="storage-card">
         <div className="storage-title">Storage Used</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
@@ -84,15 +82,20 @@ const Sidebar = ({ user, onLogout }) => {
                 fill="none"
                 stroke="#7b61ff"
                 strokeWidth="3"
-                strokeDasharray="42, 100"
+                strokeDasharray={`${usedPercent}, 100`}
               />
             </svg>
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '12px', fontWeight: 'bold' }}>
-              42%
+              {usedPercent}%
             </div>
           </div>
           <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b' }}>2.1 GB / 5 GB</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e293b' }}>
+              {pdfCount === 0 ? '0 MB' : usedDisplay} / {totalGB} GB
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-gray)', marginTop: '2px' }}>
+              {pdfCount} PDF{pdfCount !== 1 ? 's' : ''} uploaded
+            </div>
           </div>
         </div>
         <button className="btn-outline" style={{ width: '100%', justifyContent: 'center', color: '#7b61ff', borderColor: '#e2e8f0' }}>

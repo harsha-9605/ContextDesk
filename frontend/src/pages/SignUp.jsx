@@ -1,19 +1,27 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield } from 'lucide-react';
+import { useAuth } from '../context/Auth';
 
-const SignUp = ({ onLogin }) => {
+const SignUp = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { signup } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // MOCK SIGNUP
-    if (email && name) {
-      onLogin({ email, name });
-      navigate('/');
+    setError('');
+    
+    if (email && name && password) {
+      const res = await signup(name, email, password);
+      if (res.success) {
+        navigate('/');
+      } else {
+        setError(res.error || 'Failed to sign up');
+      }
     }
   };
 
@@ -27,10 +35,12 @@ const SignUp = ({ onLogin }) => {
             </div>
           </div>
           <h1>Create Account</h1>
-          <p>Join Mini File Manager today.</p>
+          <p>Join ContextDesk today.</p>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {error && <div style={{ color: '#ef4444', backgroundColor: '#fee2e2', padding: '10px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', textAlign: 'center' }}>{error}</div>}
+          
           <div className="form-group">
             <label>Full Name</label>
             <input 
