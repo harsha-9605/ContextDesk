@@ -1,4 +1,3 @@
-from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 class SemanticEngine:
@@ -22,6 +21,7 @@ class SemanticEngine:
         if self.model is None:
             print(f"🕒 RAM check: Loading {self.model_name} on demand...")
             # Load only on CPU to stay under Render's 512MB limit
+            from sentence_transformers import SentenceTransformer
             self.model = SentenceTransformer(self.model_name, device='cpu')
             self.model.eval()
             print("✅ Model loaded successfully. RAM spike managed.")
