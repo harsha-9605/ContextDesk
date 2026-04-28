@@ -43,7 +43,7 @@ engine = SemanticEngine()
 # Configure CORS to allow frontend to communicate with backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], # Vite default dev server port
+    allow_origins=["*"], # For now, allow all so we can test. We will restrict this later.
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
