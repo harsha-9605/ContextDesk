@@ -11,7 +11,7 @@ supabase
 passlib[bcrypt]
 bcrypt==4.0.1
 pyjwt
-# Force CPU-only PyTorch to save RAM/Disk space
+sentence-transformers==2.7.0
+
 --find-links https://download.pytorch.org/whl/cpu
-torch
-sentence-transformers
+torch==2.2.1+cpu
