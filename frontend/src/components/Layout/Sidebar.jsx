@@ -1,10 +1,57 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, Home, FileText, Star, Clock, Trash2, Plus, Folder } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
-const Sidebar = ({ user, onLogout, pdfCount }) => {
+const API = 'http://localhost:8000';
+
+const Sidebar = ({ user, token, onLogout, pdfCount }) => {
   const location = useLocation();
   const path = location.pathname;
+
+  const [collections, setCollections] = useState([]);
+  
+  const fetchCollections = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/collections`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCollections(data.collections || []);
+      }
+    } catch (_) {}
+  }, [token]);
+
+  useEffect(() => {
+    fetchCollections();
+  }, [fetchCollections]);
+
+  const handleCreateCollection = async () => {
+    if (!token) {
+      alert("Please sign in to create a collection.");
+      return;
+    }
+    const name = window.prompt("Enter new collection name:");
+    if (!name || !name.trim()) return;
+
+    try {
+      const res = await fetch(`${API}/api/collections`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: name.trim() })
+      });
+      if (res.ok) {
+        fetchCollections();
+      } else {
+        alert("Failed to create collection.");
+      }
+    } catch (_) {}
+  };
+
 
   // Real storage estimate: each PDF ≈ ~0.5MB average
   const estimatedMB = pdfCount * 0.5;
@@ -52,17 +99,27 @@ const Sidebar = ({ user, onLogout, pdfCount }) => {
         </ul>
       </div>
 
-      {/* Collections — empty until we build the feature */}
+      {/* Collections */}
       <div className="nav-section">
         <div className="nav-section-title">
           <span>Collections</span>
-          {user && <Plus size={16} style={{ cursor: 'pointer', opacity: 0.5 }} title="Coming soon" />}
+          {user && <Plus size={16} onClick={handleCreateCollection} style={{ cursor: 'pointer', opacity: 0.7 }} title="Create Collection" />}
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--text-gray)', padding: '10px 12px' }}>
-          {pdfCount === 0
-            ? 'No collections yet.'
-            : 'Collections coming soon.'}
-        </div>
+        <ul className="nav-list" style={{ marginTop: '8px' }}>
+          {collections.length === 0 ? (
+            <div style={{ fontSize: '13px', color: 'var(--text-gray)', padding: '4px 12px' }}>
+              No collections yet.
+            </div>
+          ) : (
+            collections.map(col => (
+              <Link to={`/collections/${col.id}`} key={col.id} className={`nav-item ${path === `/collections/${col.id}` ? 'active' : ''}`}>
+                <Folder className="nav-icon" size={18} />
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{col.name}</span>
+                <span style={{ fontSize: '11px', backgroundColor: 'var(--border-color)', padding: '2px 6px', borderRadius: '10px' }}>{col.pdf_count}</span>
+              </Link>
+            ))
+          )}
+        </ul>
       </div>
 
       {/* Storage — based on real pdf count */}

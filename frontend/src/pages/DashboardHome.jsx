@@ -1,45 +1,42 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Search, FileText, Star, Clock, Folder, Sparkles, Brain, UploadCloud, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const API = 'http://localhost:8000';
 
-const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
+const DashboardHome = ({ user, token, pdfCount, favoriteCount, onUploadSuccess }) => {
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
   // Real data from backend
   const [recentPdfs, setRecentPdfs] = useState([]);
-  const [topics, setTopics] = useState([]);
   const [loadingPdfs, setLoadingPdfs] = useState(false);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   // ── Fetch real PDFs ──────────────────────────────────────────────
   const fetchPdfs = useCallback(async () => {
+    if (!token) return;
     setLoadingPdfs(true);
     try {
-      const res = await fetch(`${API}/api/pdfs`);
+      const res = await fetch(`${API}/api/pdfs?limit=5`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setRecentPdfs(data.pdfs || []);
       }
     } catch (_) {}
     setLoadingPdfs(false);
-  }, []);
-
-  // ── Fetch real topics ────────────────────────────────────────────
-  const fetchTopics = useCallback(async () => {
-    try {
-      const res = await fetch(`${API}/api/topics`);
-      if (res.ok) {
-        const data = await res.json();
-        setTopics(data.topics || []);
-      }
-    } catch (_) {}
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     fetchPdfs();
-    fetchTopics();
-  }, [fetchPdfs, fetchTopics]);
+  }, [fetchPdfs]);
 
   // ── Upload ───────────────────────────────────────────────────────
   const handleUploadClick = () => fileInputRef.current?.click();
@@ -66,6 +63,7 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
     try {
       const response = await fetch(`${API}/api/upload`, {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       });
       if (!response.ok) {
@@ -77,7 +75,6 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
       // Refresh everything
       if (onUploadSuccess) onUploadSuccess();
       fetchPdfs();
-      fetchTopics();
     } catch (err) {
       alert(`Error uploading file: ${err.message}`);
     } finally {
@@ -91,6 +88,59 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  // ── Semantic Search ──────────────────────────────────────────────
+  const handleSearch = async (queryOverride = null) => {
+    const q = typeof queryOverride === 'string' ? queryOverride : searchQuery;
+    if (!q.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    
+    if (!token) return;
+    setIsSearching(true);
+    setSearchQuery(q); // update input visually if pill was clicked
+    try {
+      const res = await fetch(`${API}/api/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ query: q })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data.pdfs || []);
+      }
+    } catch (_) {}
+    setIsSearching(false);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults(null);
+  };
+
+  // ── Toggle Favorite ──────────────────────────────────────────────
+  const toggleFavorite = async (e, file_id) => {
+    e.stopPropagation(); // prevent opening the PDF
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/favorites/toggle`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ file_id })
+      });
+      if (res.ok) {
+        // Refresh the list to show updated favorites
+        fetchPdfs();
+      }
+    } catch (_) {}
+  };
+
   return (
     <div className="dashboard-layout">
       {/* ── Center Panel ── */}
@@ -100,16 +150,22 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
         <div className="search-area">
           <div className="search-input-wrapper">
             <Search size={20} color="#94a3b8" />
-            <input type="text" placeholder="Search PDFs by name or meaning..." />
-            <button className="btn-primary" style={{ padding: '8px 24px', height: '36px', borderRadius: '8px' }}>
-              <Sparkles size={16} /> Search
+            <input 
+              type="text" 
+              placeholder="Search PDFs by name or meaning..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            <button className="btn-primary" onClick={handleSearch} disabled={isSearching} style={{ padding: '8px 24px', height: '36px', borderRadius: '8px' }}>
+              <Sparkles size={16} /> {isSearching ? '...' : 'Search'}
             </button>
           </div>
           <div className="search-suggestions">
             <span>Try searching:</span>
-            <span className="suggestion-pill">machine learning</span>
-            <span className="suggestion-pill">neural networks</span>
-            <span className="suggestion-pill">data privacy</span>
+            <span className="suggestion-pill" onClick={() => handleSearch('machine learning')} style={{cursor: 'pointer'}}>machine learning</span>
+            <span className="suggestion-pill" onClick={() => handleSearch('neural networks')} style={{cursor: 'pointer'}}>neural networks</span>
+            <span className="suggestion-pill" onClick={() => handleSearch('data privacy')} style={{cursor: 'pointer'}}>data privacy</span>
           </div>
         </div>
 
@@ -139,8 +195,8 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
           <div className="section-header">
             <h2 className="section-title">Quick Access</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-            <div className="card" style={{ padding: '20px', backgroundColor: 'var(--accent-purple)', border: 'none' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div className="card" onClick={() => navigate('/all')} style={{ padding: '20px', backgroundColor: 'var(--accent-purple)', border: 'none', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '12px' }}>
                   <FileText color="var(--icon-purple)" size={24} />
@@ -152,19 +208,19 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
               </div>
             </div>
 
-            <div className="card" style={{ padding: '20px', backgroundColor: 'var(--accent-yellow)', border: 'none' }}>
+            <div className="card" onClick={() => navigate('/favorites')} style={{ padding: '20px', backgroundColor: 'var(--accent-yellow)', border: 'none', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '12px' }}>
                   <Star color="var(--icon-yellow)" size={24} />
                 </div>
               </div>
               <div style={{ marginTop: '16px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>0</h3>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{favoriteCount}</h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Favorites</p>
               </div>
             </div>
 
-            <div className="card" style={{ padding: '20px', backgroundColor: 'var(--accent-green)', border: 'none' }}>
+            <div className="card" onClick={() => { document.getElementById('recent-pdfs-section')?.scrollIntoView({behavior: 'smooth'}) }} style={{ padding: '20px', backgroundColor: 'var(--accent-green)', border: 'none', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '12px' }}>
                   <Clock color="var(--icon-green)" size={24} />
@@ -175,24 +231,21 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
                 <p style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Recently Uploaded</p>
               </div>
             </div>
-
-            <div className="card" style={{ padding: '20px', backgroundColor: 'var(--accent-blue)', border: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '12px' }}>
-                  <Folder color="var(--icon-blue)" size={24} />
-                </div>
-              </div>
-              <div style={{ marginTop: '16px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{topics.length}</h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Topics Found</p>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Recent PDFs — 100% real data */}
+        {/* PDFs List — Real Data or Search Results */}
         <div>
-          <h2 className="section-title" style={{ marginBottom: '16px' }}>Recent PDFs</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 id="recent-pdfs-section" className="section-title" style={{ margin: 0 }}>
+              {searchResults ? 'Search Results' : 'All / Recent PDFs'}
+            </h2>
+            {searchResults && (
+              <button className="btn-outline" onClick={clearSearch} style={{ padding: '4px 12px', fontSize: '12px', height: 'auto' }}>
+                Clear Search
+              </button>
+            )}
+          </div>
           <div className="card" style={{ padding: '0' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr auto', padding: '16px 24px', borderBottom: '1px solid var(--border-color)', fontSize: '13px', color: 'var(--text-gray)', fontWeight: '600' }}>
               <div>Name</div>
@@ -200,20 +253,22 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
               <div></div>
             </div>
 
-            {loadingPdfs ? (
+            {isSearching || loadingPdfs ? (
               <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-gray)' }}>
-                <p>Loading PDFs...</p>
+                <p>{isSearching ? 'Searching your library...' : 'Loading PDFs...'}</p>
               </div>
-            ) : recentPdfs.length === 0 ? (
+            ) : (searchResults || recentPdfs).length === 0 ? (
               <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-gray)' }}>
                 <FileText size={48} color="#cbd5e1" style={{ margin: '0 auto 16px auto' }} />
-                <p>No PDFs uploaded yet.</p>
-                <p style={{ fontSize: '13px', marginTop: '8px' }}>
-                  {user ? 'Click "Upload PDF" to add your first document.' : 'Sign in to upload PDFs.'}
-                </p>
+                <p>{searchResults ? 'No PDFs matched your search.' : 'No PDFs uploaded yet.'}</p>
+                {!searchResults && (
+                  <p style={{ fontSize: '13px', marginTop: '8px' }}>
+                    {user ? 'Click "Upload PDF" to add your first document.' : 'Sign in to upload PDFs.'}
+                  </p>
+                )}
               </div>
             ) : (
-              recentPdfs.map((pdf, idx) => (
+              (searchResults || recentPdfs).map((pdf, idx) => (
                 <div
                   key={pdf.file_id}
                   onClick={() => openPdf(pdf.supabase_url)}
@@ -221,7 +276,7 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
                     display: 'grid',
                     gridTemplateColumns: '3fr 1fr auto',
                     padding: '16px 24px',
-                    borderBottom: idx === recentPdfs.length - 1 ? 'none' : '1px solid var(--border-color)',
+                    borderBottom: idx === (searchResults || recentPdfs).length - 1 ? 'none' : '1px solid var(--border-color)',
                     alignItems: 'center',
                     cursor: 'pointer',
                     transition: 'background 0.15s',
@@ -247,8 +302,8 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
                     <div style={{ marginBottom: '4px' }}>{pdf.date}</div>
                     <div>{pdf.time}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '16px', color: '#cbd5e1' }}>
-                    <Star size={18} />
+                  <div style={{ display: 'flex', gap: '16px', color: pdf.is_favorite ? '#eab308' : '#cbd5e1' }} onClick={(e) => toggleFavorite(e, pdf.file_id)}>
+                    <Star size={18} fill={pdf.is_favorite ? '#eab308' : 'none'} style={{ cursor: 'pointer' }} />
                   </div>
                 </div>
               ))
@@ -256,7 +311,11 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
 
             <div style={{ padding: '16px', textAlign: 'center', borderTop: '1px solid var(--border-color)' }}>
               <span style={{ fontSize: '13px', color: 'var(--text-gray)' }}>
-                {recentPdfs.length > 0 ? `${recentPdfs.length} PDF${recentPdfs.length !== 1 ? 's' : ''} in your library` : 'No PDFs yet'}
+                {searchResults ? (
+                  `${searchResults.length} match${searchResults.length !== 1 ? 'es' : ''} found`
+                ) : (
+                  recentPdfs.length > 0 ? `${recentPdfs.length} PDF${recentPdfs.length !== 1 ? 's' : ''} in recent view` : 'No PDFs yet'
+                )}
               </span>
             </div>
           </div>
@@ -280,31 +339,9 @@ const DashboardHome = ({ user, pdfCount, onUploadSuccess }) => {
           </div>
           <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px' }}>Search goes beyond keywords.</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-gray)', marginBottom: '16px', lineHeight: '1.5' }}>Find PDFs by concepts, topics, or meaning.</p>
-        </div>
-
-        {/* Top Topics — 100% real data */}
-        <div className="card">
-          <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '24px' }}>Top Topics in Your Library</h3>
-          {topics.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-gray)', padding: '20px 0' }}>
-              <p style={{ fontSize: '13px' }}>No topics discovered yet.</p>
-              <p style={{ fontSize: '12px', marginTop: '4px' }}>Upload PDFs to start discovering topics.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {topics.map(topic => (
-                <div key={topic.name}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '8px' }}>
-                    <span style={{ color: 'var(--text-dark)' }}>{topic.name}</span>
-                    <span style={{ color: 'var(--text-gray)' }}>{topic.val}%</span>
-                  </div>
-                  <div style={{ height: '6px', backgroundColor: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${topic.val}%`, backgroundColor: 'var(--primary)', borderRadius: '3px' }}></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <a href="https://en.wikipedia.org/wiki/Semantic_search" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'none', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+            View full details <ExternalLink size={14} />
+          </a>
         </div>
 
         {/* Quote */}
