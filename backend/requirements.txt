@@ -12,5 +12,5 @@ passlib[bcrypt]
 bcrypt==4.0.1
 pyjwt
 sentence-transformers==2.7.0
---find-links https://download.pytorch.org/whl/cpu
-torch==2.2.2+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
