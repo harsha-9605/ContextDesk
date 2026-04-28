@@ -5,7 +5,12 @@ class SemanticEngine:
     def __init__(self, model_name='all-MiniLM-L6-v2', chunk_size=500, chunk_overlap=50):
         # Initialize the SentenceTransformer model
         # all-MiniLM-L6-v2 produces vectors of length 384
-        self.model = SentenceTransformer(model_name)
+        # 1. Force the model to load only on CPU
+        # 2. Tell it NOT to download the model every single time (use the cache)
+        self.model = SentenceTransformer(model_name, device='cpu')
+        
+        # 3. Set the model to evaluation mode to save RAM
+        self.model.eval()
         
         # Initialize the text splitter
         # We use a space separator primarily for words, but RecursiveCharacterTextSplitter
