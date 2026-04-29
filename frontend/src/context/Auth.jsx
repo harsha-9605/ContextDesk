@@ -8,10 +8,14 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load token from local storage on init
+  // Load token from session storage on init
   useEffect(() => {
-    const storedToken = localStorage.getItem('contextdesk_token');
-    const storedUser = localStorage.getItem('contextdesk_user');
+    // Clear old localStorage to fix the "half logged in" state
+    localStorage.removeItem('contextdesk_token');
+    localStorage.removeItem('contextdesk_user');
+
+    const storedToken = sessionStorage.getItem('contextdesk_token');
+    const storedUser = sessionStorage.getItem('contextdesk_user');
     
     if (storedToken && storedUser) {
       setToken(storedToken);
@@ -36,8 +40,8 @@ export const AuthProvider = ({ children }) => {
       
       setToken(data.access_token);
       setUser(data.user);
-      localStorage.setItem('contextdesk_token', data.access_token);
-      localStorage.setItem('contextdesk_user', JSON.stringify(data.user));
+      sessionStorage.setItem('contextdesk_token', data.access_token);
+      sessionStorage.setItem('contextdesk_user', JSON.stringify(data.user));
       
       return { success: true };
     } catch (error) {
@@ -61,8 +65,8 @@ export const AuthProvider = ({ children }) => {
       
       setToken(data.access_token);
       setUser(data.user);
-      localStorage.setItem('contextdesk_token', data.access_token);
-      localStorage.setItem('contextdesk_user', JSON.stringify(data.user));
+      sessionStorage.setItem('contextdesk_token', data.access_token);
+      sessionStorage.setItem('contextdesk_user', JSON.stringify(data.user));
       
       return { success: true };
     } catch (error) {
@@ -73,8 +77,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('contextdesk_token');
-    localStorage.removeItem('contextdesk_user');
+    sessionStorage.removeItem('contextdesk_token');
+    sessionStorage.removeItem('contextdesk_user');
   };
 
   if (loading) {
