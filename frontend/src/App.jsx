@@ -37,9 +37,11 @@ function App() {
   // Real PDF count fetched from backend
   const [pdfCount, setPdfCount] = useState(0);
   const [favoriteCount, setFavoriteCount] = useState(0);
+  const [loadingCounts, setLoadingCounts] = useState(true);
 
   const fetchPdfCount = async () => {
     if (!token) return;
+    setLoadingCounts(true);
     try {
       const res = await fetch(`${API}/api/pdf-count`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -54,6 +56,8 @@ function App() {
       }
     } catch (err) {
       // backend may not be running yet, silently ignore
+    } finally {
+      setLoadingCounts(false);
     }
   };
 
@@ -78,7 +82,7 @@ function App() {
         )}
         
         <Routes>
-          <Route path="/" element={user ? <DashboardHome user={user} token={token} pdfCount={pdfCount} favoriteCount={favoriteCount} onUploadSuccess={fetchPdfCount} /> : <Navigate to="/signin" />} />
+          <Route path="/" element={user ? <DashboardHome user={user} token={token} pdfCount={pdfCount} favoriteCount={favoriteCount} loadingCounts={loadingCounts} onUploadSuccess={fetchPdfCount} /> : <Navigate to="/signin" />} />
           <Route path="/all" element={user ? <AllPdfs user={user} token={token} /> : <Navigate to="/signin" />} />
           <Route path="/recent" element={<Navigate to="/" />} />
           <Route path="/favorites" element={user ? <Favorites user={user} token={token} /> : <Navigate to="/signin" />} />

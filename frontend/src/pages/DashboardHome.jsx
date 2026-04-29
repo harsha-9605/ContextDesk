@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://contextdesk-backend.onrender.com' : 'http://localhost:8000');
 
-const DashboardHome = ({ user, token, pdfCount, favoriteCount, onUploadSuccess }) => {
+const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, onUploadSuccess }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -203,7 +203,7 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, onUploadSuccess }
                 </div>
               </div>
               <div style={{ marginTop: '16px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{pdfCount}</h3>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{loadingCounts ? '...' : pdfCount}</h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-gray)' }}>All PDFs</p>
               </div>
             </div>
@@ -215,7 +215,7 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, onUploadSuccess }
                 </div>
               </div>
               <div style={{ marginTop: '16px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{favoriteCount}</h3>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{loadingCounts ? '...' : favoriteCount}</h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Favorites</p>
               </div>
             </div>
@@ -227,7 +227,7 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, onUploadSuccess }
                 </div>
               </div>
               <div style={{ marginTop: '16px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{recentPdfs.length}</h3>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold' }}>{loadingPdfs ? '...' : recentPdfs.length}</h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Recently Uploaded</p>
               </div>
             </div>
