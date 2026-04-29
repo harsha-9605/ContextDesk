@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, FileText, Star, ExternalLink, ArrowLeft, Plus } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-const API = import.meta.env.VITE_API_URL || 'https://contextdesk-backend.onrender.com';
+const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://contextdesk-backend.onrender.com' : 'http://localhost:8000');
 
 const CollectionDetails = ({ user, token }) => {
   const { id } = useParams();

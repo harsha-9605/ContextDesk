@@ -66,13 +66,20 @@ def get_health():
 @app.get("/api/pdf-count")
 async def get_pdf_count(current_user: str = Depends(get_current_user)):
     """Returns the number of unique PDFs uploaded by the user."""
-    distinct_file_ids = await pdf_documents.distinct("file_id", {"user_email": current_user})
+    pipeline = [
+        {"$match": {"user_email": current_user}},
+        {"$group": {"_id": "$file_id"}}
+    ]
+    cursor = pdf_documents.aggregate(pipeline)
+    count = 0
+    async for _ in cursor:
+        count += 1
     
     # Fetch user's favorites to return the count
     user_doc = await users_collection.find_one({"email": current_user})
     favorites = user_doc.get("favorites", []) if user_doc else []
     
-    return {"count": len(distinct_file_ids), "favorite_count": len(favorites)}
+    return {"count": count, "favorite_count": len(favorites)}
 
 @app.get("/api/pdfs")
 async def get_pdfs(limit: int = 0, current_user: str = Depends(get_current_user)):

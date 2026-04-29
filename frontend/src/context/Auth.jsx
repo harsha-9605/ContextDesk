@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
-const API = import.meta.env.VITE_API_URL || 'https://contextdesk-backend.onrender.com';
+const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://contextdesk-backend.onrender.com' : 'http://localhost:8000');
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

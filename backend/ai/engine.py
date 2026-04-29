@@ -1,7 +1,7 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 class SemanticEngine:
-    def __init__(self, model_name='all-MiniLM-L6-v2', chunk_size=500, chunk_overlap=50):
+    def __init__(self, model_name='all-MiniLM-L6-v2', chunk_size=200, chunk_overlap=40):
         # 1. Store the config, but keep the model empty (Zero RAM usage at boot)
         self.model_name = model_name
         self.model = None 

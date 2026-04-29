@@ -11,6 +11,8 @@ import CollectionDetails from './pages/CollectionDetails';
 import { useAuth } from './context/Auth';
 import './App.css';
 
+const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://contextdesk-backend.onrender.com' : 'http://localhost:8000');
+
 function App() {
   const location = useLocation();
   const { user, token, logout } = useAuth();
