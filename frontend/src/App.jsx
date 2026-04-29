@@ -48,6 +48,9 @@ function App() {
         const data = await res.json();
         setPdfCount(data.count);
         setFavoriteCount(data.favorite_count || 0);
+      } else if (res.status === 401) {
+        // If token is invalid or expired, log the user out
+        logout();
       }
     } catch (err) {
       // backend may not be running yet, silently ignore
@@ -75,11 +78,11 @@ function App() {
         )}
         
         <Routes>
-          <Route path="/" element={<DashboardHome user={user} token={token} pdfCount={pdfCount} favoriteCount={favoriteCount} onUploadSuccess={fetchPdfCount} />} />
-          <Route path="/all" element={<AllPdfs user={user} token={token} />} />
+          <Route path="/" element={user ? <DashboardHome user={user} token={token} pdfCount={pdfCount} favoriteCount={favoriteCount} onUploadSuccess={fetchPdfCount} /> : <Navigate to="/signin" />} />
+          <Route path="/all" element={user ? <AllPdfs user={user} token={token} /> : <Navigate to="/signin" />} />
           <Route path="/recent" element={<Navigate to="/" />} />
-          <Route path="/favorites" element={<Favorites user={user} token={token} />} />
-          <Route path="/collections/:id" element={<CollectionDetails user={user} token={token} />} />
+          <Route path="/favorites" element={user ? <Favorites user={user} token={token} /> : <Navigate to="/signin" />} />
+          <Route path="/collections/:id" element={user ? <CollectionDetails user={user} token={token} /> : <Navigate to="/signin" />} />
           <Route path="/trash" element={<Navigate to="/" />} />
           <Route path="/signin" element={user ? <Navigate to="/" /> : <SignIn />} />
           <Route path="/signup" element={user ? <Navigate to="/" /> : <SignUp />} />
