@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, FileText, Star, ExternalLink, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'https://contextdesk-backend.onrender.com';
 
 const Favorites = ({ user, token }) => {
   const navigate = useNavigate();

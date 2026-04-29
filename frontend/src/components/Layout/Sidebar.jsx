@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, Home, FileText, Star, Clock, Trash2, Plus, Folder } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
-const API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'https://contextdesk-backend.onrender.com';
 
 const Sidebar = ({ user, token, onLogout, pdfCount }) => {
   const location = useLocation();

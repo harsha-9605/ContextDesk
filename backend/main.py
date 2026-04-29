@@ -43,7 +43,11 @@ engine = SemanticEngine()
 # Configure CORS to allow frontend to communicate with backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For now, allow all so we can test. We will restrict this later.
+    allow_origins=[
+        "https://contextdesk.onrender.com", 
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

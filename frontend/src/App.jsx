@@ -39,7 +39,7 @@ function App() {
   const fetchPdfCount = async () => {
     if (!token) return;
     try {
-      const res = await fetch('http://localhost:8000/api/pdf-count', {
+      const res = await fetch(`${API}/api/pdf-count`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
