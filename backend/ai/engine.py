@@ -1,74 +1,77 @@
+import os
+from huggingface_hub import InferenceClient
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+
+# Single shared client — created once at import time, costs ~0 RAM
+_client: InferenceClient | None = None
+
+def _get_client() -> InferenceClient:
+    global _client
+    if _client is None:
+        token = os.getenv("HF_TOKEN")
+        if not token:
+            raise EnvironmentError(
+                "HF_TOKEN environment variable is not set. "
+                "Add it to your .env file or Render environment."
+            )
+        _client = InferenceClient(token=token)
+    return _client
+
+
 class SemanticEngine:
-    def __init__(self, model_name='all-MiniLM-L6-v2', chunk_size=200, chunk_overlap=40):
-        # 1. Store the config, but keep the model empty (Zero RAM usage at boot)
-        self.model_name = model_name
-        self.model = None 
-        
-        # Initialize text splitter (This is lightweight and can stay in __init__)
+    MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+    def __init__(self, chunk_size: int = 200, chunk_overlap: int = 40):
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size * 5, 
+            chunk_size=chunk_size * 5,
             chunk_overlap=chunk_overlap * 5,
             separators=["\n\n", "\n", " ", ""]
         )
 
-    def get_model(self):
-        """
-        The 'Lazy Loader': This function ensures the model is only loaded
-        when someone actually tries to generate an embedding.
-        """
-        if self.model is None:
-            print(f"🕒 RAM check: Loading {self.model_name} on demand...")
-            # Load only on CPU to stay under Render's 512MB limit
-            from sentence_transformers import SentenceTransformer
-            self.model = SentenceTransformer(self.model_name, device='cpu')
-            self.model.eval()
-            print("✅ Model loaded successfully. RAM spike managed.")
-        return self.model
+    # ------------------------------------------------------------------
+    # Embedding
+    # ------------------------------------------------------------------
 
-    def generate_embedding(self, text: str):
-        """
-        Uses the lazy-loaded model to create vectors.
-        """
-        # Call the loader before encoding
-        engine = self.get_model()
-        return engine.encode(text).tolist()
+    def generate_embedding(self, text: str) -> list[float]:
+        """Returns a 384-dim embedding vector via the HF Inference API."""
+        response = _get_client().feature_extraction(text, model=self.MODEL)
+        # HF can return [[...]] or [...] — always flatten to 1-D
+        return list(response[0] if isinstance(response[0], list) else response)
 
-    def chunk_text(self, text: str):
-        """
-        Splits a large block of text into smaller overlapping chunks.
-        """
+    # ------------------------------------------------------------------
+    # Text chunking
+    # ------------------------------------------------------------------
+
+    def chunk_text(self, text: str) -> list[str]:
+        """Splits a large block of text into smaller overlapping chunks."""
         return self.text_splitter.split_text(text)
 
-    def process_document(self, text: str, filename: str, file_id: str):
+    # ------------------------------------------------------------------
+    # Full document pipeline
+    # ------------------------------------------------------------------
+
+    def process_document(self, text: str, filename: str, file_id: str) -> list[dict]:
         """
-        Chunks text, batch-encodes ALL chunks in a single model call,
-        and prepares them for MongoDB. Much faster than encoding one by one.
+        Chunks text, encodes each chunk via the HF API, and returns
+        a list of dicts ready for MongoDB storage.
         """
         chunks = self.chunk_text(text)
-        print(f"⚙️  Encoding {len(chunks)} chunks in one batch call...")
+        print(f"[SemanticEngine] Encoding {len(chunks)} chunks via HF API...")
 
-        # ✅ Batch encode: send all chunks to the model AT ONCE instead of
-        # one-by-one. This is 5–10x faster on CPU.
-        model = self.get_model()
-        vectors = model.encode(
-            chunks,
-            batch_size=32,          # process 32 chunks per GPU/CPU pass
-            show_progress_bar=False,
-            convert_to_numpy=True
-        ).tolist()
-
-        print(f"✅ Batch encoding done for {len(chunks)} chunks.")
-
+        client = _get_client()
         processed_chunks = []
-        for index, (chunk_text, vector) in enumerate(zip(chunks, vectors)):
+
+        for index, chunk in enumerate(chunks):
+            response = client.feature_extraction(chunk, model=self.MODEL)
+            vector = list(response[0] if isinstance(response[0], list) else response)
             processed_chunks.append({
                 "file_id": file_id,
                 "filename": filename,
                 "chunk_index": index,
-                "text": chunk_text,
-                "vector": vector
+                "text": chunk,
+                "vector": vector,
             })
-            
+
+        print(f"[SemanticEngine] Done — {len(chunks)} chunks encoded.")
         return processed_chunks

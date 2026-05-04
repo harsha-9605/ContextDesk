@@ -11,6 +11,4 @@ supabase
 passlib[bcrypt]
 bcrypt==4.0.1
 pyjwt
-sentence-transformers==2.7.0
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
+huggingface_hub
