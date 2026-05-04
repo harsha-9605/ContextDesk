@@ -39,7 +39,9 @@ class SemanticEngine:
         """Returns a 384-dim embedding vector via the HF Inference API."""
         response = _get_client().feature_extraction(text, model=self.MODEL)
         # HF can return [[...]] or [...] — always flatten to 1-D
-        return list(response[0] if isinstance(response[0], list) else response)
+        # float() converts numpy.float32 → Python float so MongoDB can store it
+        flat = response[0] if isinstance(response[0], list) else response
+        return [float(x) for x in flat]
 
     # ------------------------------------------------------------------
     # Text chunking
@@ -66,7 +68,8 @@ class SemanticEngine:
 
         for index, chunk in enumerate(chunks):
             response = client.feature_extraction(chunk, model=self.MODEL)
-            vector = list(response[0] if isinstance(response[0], list) else response)
+            flat = response[0] if isinstance(response[0], list) else response
+            vector = [float(x) for x in flat]
             processed_chunks.append({
                 "file_id": file_id,
                 "filename": filename,
