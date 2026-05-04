@@ -33,10 +33,7 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
-    # ✅ BERT model uses lazy loading — it loads on first upload/search request.
-    # Do NOT pre-warm here: loading BERT (~350MB) + FastAPI boot overhead
-    # exceeds Render's 512MB free tier limit and causes OOM (Status 137).
-    print("✅ Server ready. BERT model will load on first upload/search request.")
+    print("Server ready. Embeddings will be generated via HuggingFace Inference API.")
         
     yield
 

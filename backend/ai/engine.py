@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from huggingface_hub import InferenceClient
 from langchain_text_splitters import RecursiveCharacterTextSplitter
