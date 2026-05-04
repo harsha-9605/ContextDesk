@@ -4,10 +4,34 @@ import { useNavigate } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://contextdesk-backend.onrender.com' : 'http://localhost:8000');
 
+/**
+ * Fetch wrapper that:
+ *  - Waits up to `timeoutMs` ms (default 120 s) before aborting
+ *  - Calls `onSlow()` after `slowMs` ms so the UI can show a "warming up" hint
+ */
+async function fetchWithTimeout(url, options = {}, { timeoutMs = 120_000, slowMs = 8_000, onSlow } = {}) {
+  const controller = new AbortController();
+  const hardTimer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let slowTimer;
+  if (onSlow) {
+    slowTimer = setTimeout(onSlow, slowMs);
+  }
+
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(hardTimer);
+    clearTimeout(slowTimer);
+  }
+}
+
 const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, onUploadSuccess }) => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('Upload PDF'); // label shown on button
 
   // Real data from backend
   const [recentPdfs, setRecentPdfs] = useState([]);
@@ -17,6 +41,7 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchStatus, setSearchStatus] = useState('Search'); // label shown on search button
 
   // ── Fetch real PDFs ──────────────────────────────────────────────
   const fetchPdfs = useCallback(async () => {
@@ -57,15 +82,24 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
     }
 
     setUploading(true);
+    setUploadStatus('Uploading…');
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${API}/api/upload`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
-      });
+      const response = await fetchWithTimeout(
+        `${API}/api/upload`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        },
+        {
+          timeoutMs: 120_000,
+          slowMs: 8_000,
+          onSlow: () => setUploadStatus('Waking up server… please wait ☕'),
+        }
+      );
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.detail || 'Upload failed');
@@ -76,9 +110,14 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
       if (onUploadSuccess) onUploadSuccess();
       fetchPdfs();
     } catch (err) {
-      alert(`Error uploading file: ${err.message}`);
+      if (err.name === 'AbortError') {
+        alert('⏱ The server took too long to respond. It may still be waking up — please try again in a moment.');
+      } else {
+        alert(`Error uploading file: ${err.message}`);
+      }
     } finally {
       setUploading(false);
+      setUploadStatus('Upload PDF');
       e.target.value = null;
     }
   };
@@ -98,22 +137,37 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
     
     if (!token) return;
     setIsSearching(true);
+    setSearchStatus('Searching…');
     setSearchQuery(q); // update input visually if pill was clicked
     try {
-      const res = await fetch(`${API}/api/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+      const res = await fetchWithTimeout(
+        `${API}/api/search`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ query: q }),
         },
-        body: JSON.stringify({ query: q })
-      });
+        {
+          timeoutMs: 120_000,
+          slowMs: 8_000,
+          onSlow: () => setSearchStatus('Waking up server… ☕'),
+        }
+      );
       if (res.ok) {
         const data = await res.json();
         setSearchResults(data.pdfs || []);
       }
-    } catch (_) {}
-    setIsSearching(false);
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        alert('⏱ Search timed out. The server may still be waking up — please try again in a moment.');
+      }
+    } finally {
+      setIsSearching(false);
+      setSearchStatus('Search');
+    }
   };
 
   const clearSearch = () => {
@@ -157,8 +211,8 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
-            <button className="btn-primary" onClick={handleSearch} disabled={isSearching} style={{ padding: '8px 24px', height: '36px', borderRadius: '8px' }}>
-              <Sparkles size={16} /> {isSearching ? '...' : 'Search'}
+            <button className="btn-primary" onClick={handleSearch} disabled={isSearching} style={{ padding: '8px 24px', height: '36px', borderRadius: '8px', minWidth: '160px', whiteSpace: 'nowrap' }}>
+              <Sparkles size={16} /> {isSearching ? searchStatus : 'Search'}
             </button>
           </div>
           <div className="search-suggestions">
@@ -184,8 +238,8 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
         {user && (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <input type="file" accept=".pdf" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-            <button className="btn-primary" onClick={handleUploadClick} disabled={uploading}>
-              <UploadCloud size={16} /> {uploading ? 'Uploading...' : 'Upload PDF'}
+            <button className="btn-primary" onClick={handleUploadClick} disabled={uploading} style={{ minWidth: '220px', whiteSpace: 'nowrap' }}>
+              <UploadCloud size={16} /> {uploading ? uploadStatus : 'Upload PDF'}
             </button>
           </div>
         )}

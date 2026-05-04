@@ -32,6 +32,15 @@ async def lifespan(app: FastAPI):
         supabase.storage.create_bucket("pdfs")
     except Exception:
         pass
+
+    # 🔥 Pre-warm the BERT model at startup so the first search/upload
+    # doesn't trigger a slow lazy-load that causes a 502 Bad Gateway on Render.
+    print("🔥 Pre-warming BERT model at startup...")
+    try:
+        engine.get_model()  # Forces the model to load now, not on first request
+        print("✅ BERT model is ready.")
+    except Exception as e:
+        print(f"⚠️  Model pre-warm failed (will retry on first request): {e}")
         
     yield
 
