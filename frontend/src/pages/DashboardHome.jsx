@@ -95,9 +95,9 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
           body: formData,
         },
         {
-          timeoutMs: 120_000,
-          slowMs: 8_000,
-          onSlow: () => setUploadStatus('Waking up server… please wait ☕'),
+          timeoutMs: 180_000,  // 3 min — first request loads BERT model (~30s) + embedding
+          slowMs: 12_000,      // show message after 12s
+          onSlow: () => setUploadStatus('Loading AI model… please wait ☕'),
         }
       );
       if (!response.ok) {
@@ -111,7 +111,7 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
       fetchPdfs();
     } catch (err) {
       if (err.name === 'AbortError') {
-        alert('⏱ The server took too long to respond. It may still be waking up — please try again in a moment.');
+        alert('⏱ Upload timed out (3 min limit reached).\n\nThe AI model may have been loading for the first time. Please try uploading again — it will be faster now.');
       } else {
         alert(`Error uploading file: ${err.message}`);
       }
@@ -151,9 +151,9 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
           body: JSON.stringify({ query: q }),
         },
         {
-          timeoutMs: 120_000,
-          slowMs: 8_000,
-          onSlow: () => setSearchStatus('Waking up server… ☕'),
+          timeoutMs: 180_000,  // 3 min — first search loads BERT model
+          slowMs: 12_000,      // show message after 12s
+          onSlow: () => setSearchStatus('Loading AI model… ☕'),
         }
       );
       if (res.ok) {
