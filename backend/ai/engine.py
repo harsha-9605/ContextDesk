@@ -43,14 +43,26 @@ class SemanticEngine:
 
     def process_document(self, text: str, filename: str, file_id: str):
         """
-        Chunks text, embeds them on demand, and prepares them for MongoDB.
+        Chunks text, batch-encodes ALL chunks in a single model call,
+        and prepares them for MongoDB. Much faster than encoding one by one.
         """
         chunks = self.chunk_text(text)
-        
+        print(f"⚙️  Encoding {len(chunks)} chunks in one batch call...")
+
+        # ✅ Batch encode: send all chunks to the model AT ONCE instead of
+        # one-by-one. This is 5–10x faster on CPU.
+        model = self.get_model()
+        vectors = model.encode(
+            chunks,
+            batch_size=32,          # process 32 chunks per GPU/CPU pass
+            show_progress_bar=False,
+            convert_to_numpy=True
+        ).tolist()
+
+        print(f"✅ Batch encoding done for {len(chunks)} chunks.")
+
         processed_chunks = []
-        for index, chunk_text in enumerate(chunks):
-            # The model will load on the very first loop iteration
-            vector = self.generate_embedding(chunk_text)
+        for index, (chunk_text, vector) in enumerate(zip(chunks, vectors)):
             processed_chunks.append({
                 "file_id": file_id,
                 "filename": filename,
