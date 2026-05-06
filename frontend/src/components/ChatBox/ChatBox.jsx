@@ -41,16 +41,21 @@ const ChatBox = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get answer');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to get answer');
       }
 
       const data = await response.json();
       setMessages(prev => [...prev, { role: 'ai', content: data.answer }]);
     } catch (error) {
       console.error('Chat error:', error);
+      const msg = (error.message === 'Failed to get answer' || error.message === 'Failed to fetch') 
+        ? 'Sorry, I encountered an error while searching your PDFs.' 
+        : error.message;
+        
       setMessages(prev => [...prev, { 
         role: 'ai', 
-        content: 'Sorry, I encountered an error while searching your PDFs.' 
+        content: msg 
       }]);
     } finally {
       setIsLoading(false);

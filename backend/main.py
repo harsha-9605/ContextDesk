@@ -286,8 +286,24 @@ async def chat_with_pdfs(req: ChatRequest, current_user: str = Depends(get_curre
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
         
+    # Check for general greetings to bypass vector search
+    query_lower = req.query.strip().lower()
+    greetings = ["hello", "hi", "hey", "hii", "how are you", "good morning", "good evening"]
+    is_greeting = any(query_lower == g or query_lower.startswith(g + " ") for g in greetings)
+    
+    if is_greeting:
+        answer = engine.generate_answer(req.query, [])
+        return {"answer": answer, "sources_used": 0}
+        
     # 1. Embed query
-    query_vector = engine.generate_embedding(req.query)
+    try:
+        query_vector = engine.generate_embedding(req.query)
+    except Exception as e:
+        print(f"[SemanticEngine] Embedding failed: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Hugging Face API Error: Your HF_TOKEN is unauthorized, missing, or expired. Please check your Render environment variables."
+        )
     
     # 2. Vector search to find relevant chunks
     pipeline = [

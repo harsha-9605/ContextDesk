@@ -45,9 +45,9 @@ class SemanticEngine:
     def generate_embedding(self, text: str) -> list[float]:
         """Returns a 384-dim embedding vector via the HF Inference API."""
         response = _get_client().feature_extraction(text, model=self.MODEL)
-        # HF can return [[...]] or [...] — always flatten to 1-D
-        # float() converts numpy.float32 → Python float so MongoDB can store it
-        flat = response[0] if isinstance(response[0], list) else response
+        import numpy as np
+        # HF can return [[...]] or [...] — always flatten to 1-D using numpy
+        flat = np.array(response).flatten()
         return [float(x) for x in flat]
 
     # ------------------------------------------------------------------
