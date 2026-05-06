@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Search, FileText, Star, Clock, Folder, Sparkles, Brain, UploadCloud, ExternalLink } from 'lucide-react';
+import { Search, FileText, Star, Clock, Folder, Sparkles, Brain, UploadCloud, ExternalLink, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://contextdesk-backend.onrender.com' : 'http://localhost:8000');
@@ -195,6 +195,29 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
     } catch (_) {}
   };
 
+  // ── Delete PDF ───────────────────────────────────────────────────
+  const deletePdf = async (e, file_id) => {
+    e.stopPropagation();
+    if (!token) return;
+    if (!window.confirm("Are you sure you want to delete this PDF? This cannot be undone.")) return;
+    
+    try {
+      const res = await fetch(`${API}/api/pdfs/${file_id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        if (onUploadSuccess) onUploadSuccess(); // To refresh counts
+        fetchPdfs();
+        if (searchResults) {
+           handleSearch(); // re-fetch search results
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting PDF:", err);
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       {/* ── Center Panel ── */}
@@ -356,8 +379,9 @@ const DashboardHome = ({ user, token, pdfCount, favoriteCount, loadingCounts, on
                     <div style={{ marginBottom: '4px' }}>{pdf.date}</div>
                     <div>{pdf.time}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '16px', color: pdf.is_favorite ? '#eab308' : '#cbd5e1' }} onClick={(e) => toggleFavorite(e, pdf.file_id)}>
-                    <Star size={18} fill={pdf.is_favorite ? '#eab308' : 'none'} style={{ cursor: 'pointer' }} />
+                  <div style={{ display: 'flex', gap: '16px', color: pdf.is_favorite ? '#eab308' : '#cbd5e1' }}>
+                    <Star size={18} fill={pdf.is_favorite ? '#eab308' : 'none'} style={{ cursor: 'pointer' }} onClick={(e) => toggleFavorite(e, pdf.file_id)} />
+                    <Trash2 size={18} color="#ef4444" style={{ cursor: 'pointer', opacity: 0.8 }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.8} onClick={(e) => deletePdf(e, pdf.file_id)} />
                   </div>
                 </div>
               ))

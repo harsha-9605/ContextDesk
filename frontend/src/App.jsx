@@ -8,6 +8,7 @@ import SignUp from './pages/SignUp';
 import AllPdfs from './pages/AllPdfs';
 import Favorites from './pages/Favorites';
 import CollectionDetails from './pages/CollectionDetails';
+import ChatBox from './components/ChatBox/ChatBox';
 import { useAuth } from './context/Auth';
 import './App.css';
 
@@ -92,6 +93,9 @@ function App() {
           <Route path="/signup" element={user ? <Navigate to="/" /> : <SignUp />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        
+        {/* Render ChatBox floating widget only for authenticated users */}
+        {user && !isAuthPage && <ChatBox />}
       </div>
     </div>
   );

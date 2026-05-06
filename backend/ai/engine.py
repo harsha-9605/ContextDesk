@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from huggingface_hub import InferenceClient
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import google.generativeai as genai
 
 
 # Single shared client — created once at import time, costs ~0 RAM
@@ -18,6 +19,12 @@ def _get_client() -> InferenceClient:
                 "Add it to your .env file or Render environment."
             )
         _client = InferenceClient(token=token)
+        
+        # Also configure Gemini here lazily
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if gemini_key:
+            genai.configure(api_key=gemini_key)
+        
     return _client
 
 
@@ -80,3 +87,43 @@ class SemanticEngine:
 
         print(f"[SemanticEngine] Done — {len(chunks)} chunks encoded.")
         return processed_chunks
+
+    # ------------------------------------------------------------------
+    # Chat / RAG
+    # ------------------------------------------------------------------
+
+    def generate_answer(self, query: str, context_chunks: list[str]) -> str:
+        """
+        Uses Google Gemini to answer the user's query based ONLY on the provided context.
+        Forces the answer to be brief (no large paragraphs).
+        """
+        # Ensure Gemini is configured
+        _get_client() 
+        
+        if not context_chunks:
+            return "I couldn't find any relevant information in your uploaded PDFs to answer that."
+
+        context_text = "\n\n---\n\n".join(context_chunks)
+        
+        prompt = f"""You are a helpful AI assistant for a document management app called ContextDesk.
+Your task is to answer the user's question based strictly on the provided context from their uploaded PDFs.
+
+CRITICAL INSTRUCTIONS:
+1. Answer strictly using ONLY the provided context. If the answer is not in the context, say "I don't have enough information in your PDFs to answer that."
+2. Keep your answer brief, concise, and straight to the point.
+3. DO NOT use large paragraphs. Use a maximum of 2-3 short sentences.
+4. If relevant, you may use brief bullet points instead of sentences.
+
+CONTEXT:
+{context_text}
+
+USER QUESTION: {query}
+"""
+        
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"[SemanticEngine] Error generating answer: {e}")
+            return "I encountered an error while trying to generate an answer. Please try again."

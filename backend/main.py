@@ -134,6 +134,46 @@ async def get_pdfs(limit: int = 0, current_user: str = Depends(get_current_user)
 
 
 
+@app.delete("/api/pdfs/{file_id}")
+async def delete_pdf(file_id: str, current_user: str = Depends(get_current_user)):
+    """
+    Deletes a PDF and its associated chunks from MongoDB, and the physical file from Supabase.
+    """
+    # 1. Verify ownership and get supabase URL
+    # We only need to check one chunk since all chunks for a file_id share the same supabase_url and user_email
+    chunk = await pdf_documents.find_one({"file_id": file_id, "user_email": current_user})
+    if not chunk:
+        raise HTTPException(status_code=404, detail="PDF not found or you don't have permission to delete it.")
+
+    supabase_url = chunk.get("supabase_url")
+    
+    # 2. Delete from Supabase Storage
+    if supabase_url:
+        try:
+            # Extract storage path from the URL
+            storage_path = supabase_url.split("/pdfs/")[-1]
+            supabase.storage.from_("pdfs").remove([storage_path])
+        except Exception as e:
+            print(f"Failed to delete from Supabase: {e}")
+            # We don't raise here; if Supabase deletion fails (e.g. file already gone), we still want to clean MongoDB
+
+    # 3. Delete chunks from MongoDB
+    await pdf_documents.delete_many({"file_id": file_id, "user_email": current_user})
+
+    # 4. Remove from user's favorites
+    await users_collection.update_one(
+        {"email": current_user},
+        {"$pull": {"favorites": file_id}}
+    )
+
+    # 5. Remove from any collections
+    await collections_collection.update_many(
+        {"user_email": current_user},
+        {"$pull": {"pdfs": file_id}}
+    )
+
+    return {"message": "PDF successfully deleted"}
+
 # Model for our new AI endpoint
 class EmbeddingRequest(BaseModel):
     text: str
@@ -144,48 +184,58 @@ class SearchRequest(BaseModel):
 @app.post("/api/search")
 async def search_pdfs(req: SearchRequest, current_user: str = Depends(get_current_user)):
     """
-    Perform semantic search across all PDF chunks belonging to the user.
+    Perform semantic search across all PDF chunks belonging to the user using MongoDB Atlas Vector Search.
     """
     if not req.query.strip():
         return {"pdfs": []}
         
     # 1. Generate query embedding
     query_vector = engine.generate_embedding(req.query)
-    query_vec_np = np.array(query_vector)
-    query_norm = np.linalg.norm(query_vec_np)
-    if query_norm == 0:
-        query_norm = 1e-10
         
-    # 2. Iterate through all chunks for the user and calculate cosine similarity
-    cursor = pdf_documents.find({"user_email": current_user})
+    # 2. Use MongoDB Atlas Vector Search
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "vector_index",
+                "path": "vector",
+                "queryVector": query_vector,
+                "numCandidates": 100,
+                "limit": 50,
+                "filter": {"user_email": {"$eq": current_user}}
+            }
+        },
+        {
+            "$project": {
+                "file_id": 1,
+                "filename": 1,
+                "supabase_url": 1,
+                "uploaded_at": 1,
+                "text": 1,
+                "score": {"$meta": "vectorSearchScore"}
+            }
+        }
+    ]
+    
+    cursor = pdf_documents.aggregate(pipeline)
     
     best_chunks = {}
-    chunk_counts = {}
     
     async for chunk in cursor:
         file_id = chunk.get("file_id")
-        chunk_vec = chunk.get("vector")
-        if not file_id or not chunk_vec:
+        score = chunk.get("score", 0)
+        
+        if not file_id:
             continue
             
-        chunk_counts[file_id] = chunk_counts.get(file_id, 0) + 1
-        
-        chunk_vec_np = np.array(chunk_vec)
-        chunk_norm = np.linalg.norm(chunk_vec_np)
-        if chunk_norm == 0:
-            continue
-            
-        similarity = np.dot(query_vec_np, chunk_vec_np) / (query_norm * chunk_norm)
-        
         # Keep track of the chunk with highest similarity per file
-        if file_id not in best_chunks or similarity > best_chunks[file_id]["similarity"]:
+        if file_id not in best_chunks or score > best_chunks[file_id]["similarity"]:
             best_chunks[file_id] = {
                 "file_id": file_id,
                 "filename": chunk.get("filename", "Untitled.pdf"),
                 "supabase_url": chunk.get("supabase_url", ""),
                 "uploaded_at": chunk.get("uploaded_at"),
                 "preview": chunk.get("text", ""),
-                "similarity": similarity
+                "similarity": score
             }
             
     # Fetch user's favorites
@@ -193,12 +243,11 @@ async def search_pdfs(req: SearchRequest, current_user: str = Depends(get_curren
     favorites = user_doc.get("favorites", []) if user_doc else []
     
     results = []
-    # Sort files by highest similarity
     sorted_files = sorted(best_chunks.values(), key=lambda x: x["similarity"], reverse=True)
     
     for f in sorted_files:
-        # Only include if similarity > 0.1 (basic threshold to ignore irrelevant results)
-        if f["similarity"] < 0.1:
+        # Ignore irrelevant results based on Atlas Vector Search score
+        if f["similarity"] < 0.6: # Atlas cosine similarity score threshold might need tuning
             continue
             
         uploaded_at = f["uploaded_at"]
@@ -213,14 +262,60 @@ async def search_pdfs(req: SearchRequest, current_user: str = Depends(get_curren
             "supabase_url": f["supabase_url"],
             "date": date_str,
             "time": time_str,
-            "chunks": chunk_counts.get(f["file_id"], 0),
+            "chunks": 0, # Chunk count omitted for speed
             "preview": preview,
             "is_favorite": f["file_id"] in favorites,
             "similarity": float(f["similarity"])
         })
         
-    # Return top 10 unique PDFs matching the search
     return {"pdfs": results[:10]}
+
+class ChatRequest(BaseModel):
+    query: str
+
+@app.post("/api/chat")
+async def chat_with_pdfs(req: ChatRequest, current_user: str = Depends(get_current_user)):
+    """
+    RAG endpoint: Search PDFs and generate an answer using Google Gemini.
+    """
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+        
+    # 1. Embed query
+    query_vector = engine.generate_embedding(req.query)
+    
+    # 2. Vector search to find relevant chunks
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "vector_index",
+                "path": "vector",
+                "queryVector": query_vector,
+                "numCandidates": 50,
+                "limit": 5, # Only need top 5 chunks for context
+                "filter": {"user_email": {"$eq": current_user}}
+            }
+        },
+        {
+            "$project": {
+                "text": 1,
+                "score": {"$meta": "vectorSearchScore"}
+            }
+        }
+    ]
+    
+    cursor = pdf_documents.aggregate(pipeline)
+    
+    context_chunks = []
+    async for chunk in cursor:
+        if chunk.get("score", 0) > 0.5: # Only include relevant context
+            context_chunks.append(chunk.get("text", ""))
+            
+    # 3. Generate answer
+    answer = engine.generate_answer(req.query, context_chunks)
+    
+    return {"answer": answer, "sources_used": len(context_chunks)}
+
 
 @app.post("/api/embed")
 def generate_embedding(request: EmbeddingRequest):
