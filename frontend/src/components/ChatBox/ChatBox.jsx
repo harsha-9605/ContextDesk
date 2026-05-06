@@ -30,7 +30,7 @@ const ChatBox = () => {
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('contextdesk_token');
       const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: {
