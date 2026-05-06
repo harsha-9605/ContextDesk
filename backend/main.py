@@ -73,15 +73,20 @@ async def get_pdf_count(current_user: str = Depends(get_current_user)):
         {"$group": {"_id": "$file_id"}}
     ]
     cursor = pdf_documents.aggregate(pipeline)
-    count = 0
-    async for _ in cursor:
-        count += 1
+    active_file_ids = set()
+    async for doc in cursor:
+        active_file_ids.add(doc["_id"])
+        
+    count = len(active_file_ids)
     
     # Fetch user's favorites to return the count
     user_doc = await users_collection.find_one({"email": current_user})
     favorites = user_doc.get("favorites", []) if user_doc else []
     
-    return {"count": count, "favorite_count": len(favorites)}
+    # Filter favorites to only include active file_ids
+    valid_favorites = [fid for fid in favorites if fid in active_file_ids]
+    
+    return {"count": count, "favorite_count": len(valid_favorites)}
 
 @app.get("/api/pdfs")
 async def get_pdfs(limit: int = 0, current_user: str = Depends(get_current_user)):
@@ -441,13 +446,24 @@ class AddPdfToCollection(BaseModel):
 
 @app.get("/api/collections")
 async def get_collections(current_user: str = Depends(get_current_user)):
+    # Get active file_ids to filter out manually deleted orphaned IDs
+    pipeline = [
+        {"$match": {"user_email": current_user}},
+        {"$group": {"_id": "$file_id"}}
+    ]
+    cursor = pdf_documents.aggregate(pipeline)
+    active_file_ids = set()
+    async for doc in cursor:
+        active_file_ids.add(doc["_id"])
+
     cursor = collections_collection.find({"user_email": current_user})
     collections = []
     async for doc in cursor:
+        valid_pdfs = [fid for fid in doc.get("pdfs", []) if fid in active_file_ids]
         collections.append({
             "id": str(doc["_id"]),
             "name": doc.get("name", ""),
-            "pdf_count": len(doc.get("pdfs", []))
+            "pdf_count": len(valid_pdfs)
         })
     return {"collections": collections}
 

@@ -106,13 +106,12 @@ class SemanticEngine:
         context_text = "\n\n---\n\n".join(context_chunks)
         
         prompt = f"""You are a helpful AI assistant for a document management app called ContextDesk.
-Your task is to answer the user's question based strictly on the provided context from their uploaded PDFs.
 
 CRITICAL INSTRUCTIONS:
-1. Answer strictly using ONLY the provided context. If the answer is not in the context, say "I don't have enough information in your PDFs to answer that."
-2. Keep your answer brief, concise, and straight to the point.
-3. DO NOT use large paragraphs. Use a maximum of 2-3 short sentences.
-4. If relevant, you may use brief bullet points instead of sentences.
+1. If the user is just saying a general greeting (like "hello", "hi", "how are you") or asking general conversational questions, respond naturally and politely, and ask how you can help them with their PDFs. You do NOT need to use the context for greetings.
+2. For all other questions, answer strictly using ONLY the provided context. If the answer is not in the context, say "I don't have enough information in your PDFs to answer that."
+3. Keep your answer brief, concise, and straight to the point.
+4. DO NOT use large paragraphs. Use a maximum of 2-3 short sentences.
 
 CONTEXT:
 {context_text}
