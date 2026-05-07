@@ -120,9 +120,20 @@ USER QUESTION: {query}
 """
         
         try:
+            gemini_key = os.getenv("GEMINI_API_KEY")
+            if gemini_key:
+                genai.configure(api_key=gemini_key)
+            else:
+                raise ValueError("GEMINI_API_KEY is not set in the environment.")
+                
             model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(prompt)
             return response.text
         except Exception as e:
-            print(f"[SemanticEngine] Error generating answer: {e}")
-            return "I encountered an error while trying to generate an answer. Please try again."
+            error_msg = str(e)
+            print(f"[SemanticEngine] Error generating answer: {error_msg}")
+            if "API_KEY_INVALID" in error_msg or "API key not valid" in error_msg:
+                return "AI Error: Your Gemini API key is invalid. Please check your Render environment variables."
+            elif "credentials" in error_msg.lower() or "api_key" in error_msg.lower():
+                return "AI Error: Missing Gemini API credentials. Please ensure GEMINI_API_KEY is set in your Render environment."
+            return f"I encountered an error while trying to generate an answer: {error_msg}"
