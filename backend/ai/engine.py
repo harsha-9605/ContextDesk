@@ -126,7 +126,7 @@ USER QUESTION: {query}
             else:
                 raise ValueError("GEMINI_API_KEY is not set in the environment.")
                 
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(prompt)
             return response.text
         except Exception as e:
