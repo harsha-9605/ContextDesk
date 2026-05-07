@@ -286,14 +286,11 @@ async def chat_with_pdfs(req: ChatRequest, current_user: str = Depends(get_curre
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
         
-    # Check for general greetings to bypass vector search
-    query_lower = req.query.strip().lower()
-    greetings = ["hello", "hi", "hey", "hii", "how are you", "good morning", "good evening"]
-    is_greeting = any(query_lower == g or query_lower.startswith(g + " ") for g in greetings)
-    
-    if is_greeting:
-        answer = engine.generate_answer(req.query, [])
-        return {"answer": answer, "sources_used": 0}
+    # Get user metadata for the AI context
+    counts = await get_pdf_count(current_user)
+    pdf_count = counts["count"]
+    favorite_count = counts["favorite_count"]
+    user_metadata = f"The user has {pdf_count} PDFs uploaded to their account and {favorite_count} favorited PDFs."
         
     # 1. Embed query
     try:
@@ -333,7 +330,7 @@ async def chat_with_pdfs(req: ChatRequest, current_user: str = Depends(get_curre
             context_chunks.append(chunk.get("text", ""))
             
     # 3. Generate answer
-    answer = engine.generate_answer(req.query, context_chunks)
+    answer = engine.generate_answer(req.query, context_chunks, user_metadata=user_metadata)
     
     return {"answer": answer, "sources_used": len(context_chunks)}
 

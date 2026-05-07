@@ -86,25 +86,24 @@ class SemanticEngine:
     # Chat / RAG
     # ------------------------------------------------------------------
 
-    def generate_answer(self, query: str, context_chunks: list[str]) -> str:
+    def generate_answer(self, query: str, context_chunks: list[str], user_metadata: str = "") -> str:
         """
         Uses Hugging Face Llama 3.1 to answer the user's query based ONLY on the provided context.
         Forces the answer to be brief (no large paragraphs).
         """
         client = _get_client() 
         
-        if not context_chunks:
-            return "I couldn't find any relevant information in your uploaded PDFs to answer that."
-
-        context_text = "\n\n---\n\n".join(context_chunks)
+        context_text = "\n\n---\n\n".join(context_chunks) if context_chunks else "No document context provided or found."
         
-        system_prompt = f"""You are a helpful AI assistant for a document management app called ContextDesk.
+        system_prompt = f"""You are the ContextDesk Assistant. 
+1. If the user greets you (e.g., 'hi', 'hello', 'hey', 'yo'—including variations like 'hiiii'), respond warmly and ask how you can help with their documents.
+2. If the user asks about their account details (e.g., number of PDFs, favorites), use the provided USER ACCOUNT METADATA to answer.
+3. Only use the provided PDF context if the user asks a specific question about their data. If the answer is not in the context or metadata, say "I don't have enough information in your PDFs to answer that."
+4. Keep your tone helpful and professional but friendly.
+5. Keep your answer brief, concise, and straight to the point (maximum 2-3 short sentences).
 
-CRITICAL INSTRUCTIONS:
-1. If the user is just saying a general greeting (like "hello", "hi", "how are you") or asking general conversational questions, respond naturally and politely, and ask how you can help them with their PDFs. You do NOT need to use the context for greetings.
-2. For all other questions, answer strictly using ONLY the provided context. If the answer is not in the context, say "I don't have enough information in your PDFs to answer that."
-3. Keep your answer brief, concise, and straight to the point.
-4. DO NOT use large paragraphs. Use a maximum of 2-3 short sentences.
+USER ACCOUNT METADATA:
+{user_metadata}
 
 CONTEXT:
 {context_text}"""
