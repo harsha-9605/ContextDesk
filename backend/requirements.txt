@@ -13,4 +13,3 @@ bcrypt==4.0.1
 pyjwt
 huggingface-hub
 numpy
-google-generativeai

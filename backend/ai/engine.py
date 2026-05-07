@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from huggingface_hub import InferenceClient
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-import google.generativeai as genai
 
 
 # Single shared client — created once at import time, costs ~0 RAM
@@ -19,11 +18,6 @@ def _get_client() -> InferenceClient:
                 "Add it to your .env file or Render environment."
             )
         _client = InferenceClient(token=token)
-        
-        # Also configure Gemini here lazily
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        if gemini_key:
-            genai.configure(api_key=gemini_key)
         
     return _client
 
@@ -94,18 +88,17 @@ class SemanticEngine:
 
     def generate_answer(self, query: str, context_chunks: list[str]) -> str:
         """
-        Uses Google Gemini to answer the user's query based ONLY on the provided context.
+        Uses Hugging Face Llama 3.1 to answer the user's query based ONLY on the provided context.
         Forces the answer to be brief (no large paragraphs).
         """
-        # Ensure Gemini is configured
-        _get_client() 
+        client = _get_client() 
         
         if not context_chunks:
             return "I couldn't find any relevant information in your uploaded PDFs to answer that."
 
         context_text = "\n\n---\n\n".join(context_chunks)
         
-        prompt = f"""You are a helpful AI assistant for a document management app called ContextDesk.
+        system_prompt = f"""You are a helpful AI assistant for a document management app called ContextDesk.
 
 CRITICAL INSTRUCTIONS:
 1. If the user is just saying a general greeting (like "hello", "hi", "how are you") or asking general conversational questions, respond naturally and politely, and ask how you can help them with their PDFs. You do NOT need to use the context for greetings.
@@ -114,26 +107,22 @@ CRITICAL INSTRUCTIONS:
 4. DO NOT use large paragraphs. Use a maximum of 2-3 short sentences.
 
 CONTEXT:
-{context_text}
-
-USER QUESTION: {query}
-"""
+{context_text}"""
+        
+        # Using Llama 3.1 Instruct format natively via chat_completion
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query}
+        ]
         
         try:
-            gemini_key = os.getenv("GEMINI_API_KEY")
-            if gemini_key:
-                genai.configure(api_key=gemini_key)
-            else:
-                raise ValueError("GEMINI_API_KEY is not set in the environment.")
-                
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(prompt)
-            return response.text
+            response = client.chat_completion(
+                model="meta-llama/Llama-3.1-8B-Instruct",
+                messages=messages,
+                max_tokens=250
+            )
+            return response.choices[0].message.content
         except Exception as e:
             error_msg = str(e)
             print(f"[SemanticEngine] Error generating answer: {error_msg}")
-            if "API_KEY_INVALID" in error_msg or "API key not valid" in error_msg:
-                return "AI Error: Your Gemini API key is invalid. Please check your Render environment variables."
-            elif "credentials" in error_msg.lower() or "api_key" in error_msg.lower():
-                return "AI Error: Missing Gemini API credentials. Please ensure GEMINI_API_KEY is set in your Render environment."
             return f"I encountered an error while trying to generate an answer: {error_msg}"

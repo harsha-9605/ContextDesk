@@ -281,7 +281,7 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat_with_pdfs(req: ChatRequest, current_user: str = Depends(get_current_user)):
     """
-    RAG endpoint: Search PDFs and generate an answer using Google Gemini.
+    RAG endpoint: Search PDFs and generate an answer using Hugging Face Llama 3.1.
     """
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
