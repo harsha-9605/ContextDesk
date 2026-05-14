@@ -3,7 +3,7 @@ import uuid
 from ai.engine import SemanticEngine
 from database import pdf_documents
 
-async def test_chunking():
+async def run_chunking_test():
     # Simulated Long PDF String (approx 150 words repeated 10 times to make ~1500 words)
     long_text = ("This is a simulated sentence representing content extracted from a PDF. "
                  "We want to ensure that extremely long strings are divided correctly without "
@@ -31,4 +31,4 @@ async def test_chunking():
         print("No chunks generated!")
         
 if __name__ == "__main__":
-    asyncio.run(test_chunking())
+    asyncio.run(run_chunking_test())

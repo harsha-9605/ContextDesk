@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # The "Face" - Lightweight Nginx + React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # The "Brain" - FastAPI + Engine
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  # The "Memory" - MongoDB
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+# This tells Docker to create a persistent storage named mongodb_data on your host machine
+volumes:
+  mongodb_data:
