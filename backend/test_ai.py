@@ -1,3 +1,4 @@
+import os
 import pytest
 from ai.engine import SemanticEngine
 
@@ -6,15 +7,15 @@ def engine():
     """Fixture to initialize the SemanticEngine for tests."""
     return SemanticEngine()
 
+@pytest.mark.skipif(not os.getenv("HF_TOKEN"), reason="Requires HF_TOKEN environment variable")
 def test_generate_embedding_length(engine):
     """Test that the generated embedding has the correct dimension (384)."""
     text = "I love learning about Artificial Intelligence at LPU."
     vector = engine.generate_embedding(text)
     
-    # In pytest, we use 'assert' to check if something is true.
-    # If the assertion fails, the test fails automatically.
     assert len(vector) == 384, f"Expected vector length 384, but got {len(vector)}"
 
+@pytest.mark.skipif(not os.getenv("HF_TOKEN"), reason="Requires HF_TOKEN environment variable")
 def test_generate_embedding_type(engine):
     """Test that the generated embedding contains floats."""
     text = "Just a simple test string."
